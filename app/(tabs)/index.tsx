@@ -1,72 +1,143 @@
-import { Image, StyleSheet, Platform } from 'react-native';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { Button } from 'react-native-paper';
+import { useEffect, useState } from 'react';
+import { ScrollView, View } from 'react-native';
+import { Button, List, Text, TextInput, } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-export default function HomeScreen() {
+import * as SQLite from 'expo-sqlite';
+import * as Notifications from 'expo-notifications';
+
+export default function Home() {
+  const [deadline, setDeadline] = useState(new Date());
+  const [title, setTitle] = useState('');
+  const [data, setData] = useState([]);
+  const [show, setShow] = useState(false)
+
+  const onChange = (event: React.FormEvent, selectedDate: Date) => {
+    setShow(false);
+    setDeadline(selectedDate);
+  };
+
+  const showDateTime = () => {
+    setShow(true);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Notification permissions not granted!');
+      }
+    })();
+
+    createDatabase()
+    getTodos()
+  }, [])
+
+  async function scheduleNotifications(todos) {
+    for (const todo of todos) {
+      const deadline = new Date(todo.deadline);
+      if (deadline > new Date()) { // Schedule only for future deadlines
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Todo Reminder',
+            body: `Reminder: ${todo.title}`,
+          },
+          trigger: deadline,
+        });
+      }
+    }
+  }
+
+  async function createDatabase() {
+    const db = await SQLite.openDatabaseAsync('db');
+
+    await db.execAsync(`
+      PRAGMA journal_mode = WAL;
+      CREATE TABLE IF NOT EXISTS todos (
+        id INTEGER PRIMARY KEY NOT NULL, 
+        title TEXT NOT NULL,
+        deadline TEXT NOT NULL
+      );
+      `);
+    console.log("database created.")
+  }
+
+  async function getTodos() {
+    const db = await SQLite.openDatabaseAsync('db');
+    const todos = await db.getAllAsync("SELECT * FROM todos;")
+    setData(todos)
+    scheduleNotifications(todos);
+  }
+
+  async function deleteTodo(id: number) {
+    const db = await SQLite.openDatabaseAsync('db');
+    await db.runAsync('DELETE FROM todos WHERE id = ?', id);
+    getTodos()
+  }
+
+  async function createTodo() {
+    const db = await SQLite.openDatabaseAsync('db');
+    const formattedDeadline = deadline.toISOString();
+    await db.runAsync('INSERT INTO todos (title, deadline) VALUES (?,?)', title, formattedDeadline);
+    getTodos()
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
+      <Text style={{ fontSize: 24, marginBottom: 20 }}>
+        Welcome to Classify
+      </Text>
+      <TextInput
+        label="Todo"
+        value={title}
+        onChangeText={title => setTitle(title)}
+        mode="outlined"
+        style={{ marginBottom: 20 }}
+      />
+      <View style={{ display: "flex", justifyContent: "space-between", direction: "row" }}>
+        <Text style={{ marginBottom: 20 }}>{deadline.toLocaleString()}</Text>
+        <Button
+          mode="contained"
+          onPress={showDateTime}
+          style={{ marginBottom: 20 }}
+        >
+          Pick Time
+        </Button>
+      </View>
+      {show && (
+        <DateTimePicker
+          testID="dateTimePicker"
+          value={deadline}
+          mode={"time"}
+          is24Hour={false}
+          onChange={onChange}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      )}
+      <Button
+        mode="contained"
+        onPress={createTodo}
+        style={{ marginBottom: 20 }}
+      >
+        Submit
+      </Button>
+
+      <ScrollView style={{ flex: 1 }}>
+        <List.Section>
+          {data.map(item => (
+            <List.Item
+              key={item.id}
+              title={`${new Date(item.deadline).toLocaleTimeString()} | ${item.title}`}
+              right={() => (
+                <Button mode="outline" onPress={() => deleteTodo(item.id)}>
+                  Delete
+                </Button>
+              )}
+            />
+          ))}
+        </List.Section>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+

@@ -1,44 +1,30 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
+import React, { useState } from 'react';
+import { BottomNavigation } from 'react-native-paper';
+import Home from '.';
+import Profile from './profile';
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+const Layout = () => {
+  const [index, setIndex] = useState(0);
+  
+  const [routes] = useState([
+    { key: 'home', title: 'Home', focusedIcon: 'home', unfocusedIcon: 'home-outline' },
+    { key: 'profile', title: 'Profile', focusedIcon: 'account', unfocusedIcon: 'account-outline' },
+  ]);
+
+  const renderScene = BottomNavigation.SceneMap({
+    home: Home,
+    profile: Profile,
+  });
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-    </Tabs>
-  );  
-}
+    <BottomNavigation
+      navigationState={{ index, routes }}
+      onIndexChange={setIndex}
+      renderScene={renderScene}
+      shifting={true}
+    />
+  );
+};
+
+export default Layout;
