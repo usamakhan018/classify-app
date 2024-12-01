@@ -9,6 +9,8 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Provider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native';
+import NotificationProvider from '@/providers/NotificationProvider';
+import AppbarProvider from '@/providers/AppbarProvider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,13 +33,17 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Provider>
-        <Stack>
-          <SafeAreaView>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false, headerBackVisible: true }} />
-            <Stack.Screen name="+not-found" />
-          </SafeAreaView>
-        </Stack>
-        <StatusBar style="auto" />
+        <NotificationProvider>
+          <AppbarProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <SafeAreaView>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </SafeAreaView>
+            </Stack>
+            <StatusBar style="auto" />
+          </AppbarProvider>
+        </NotificationProvider>
       </Provider>
     </ThemeProvider>
   );
